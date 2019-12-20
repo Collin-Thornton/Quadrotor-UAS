@@ -1,11 +1,13 @@
 
 #define EI_ARDUINO_INTERRUPTED_PIN
-//#include <NeoSWSerial.h>
+#include <NeoSWSerial.h>
 #include <Wire.h>
 #include <I2Cdev.h>
 #include <MPU6050_6Axis_MotionApps20.h>
 #include <EnableInterrupt.h>
 #include <Servo.h>
+
+
 
 #define MOTOR_PIN_5 5
 #define MOTOR_PIN_6 6
