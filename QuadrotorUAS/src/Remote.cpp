@@ -4,7 +4,7 @@
 Remote::Remote(short pin) {
     pinMode(pin, INPUT_PULLUP);
     this->pin = pin;
-    update_time = micros();
+    update_time = millis();
 
     switch(pin) {
         case 7:
@@ -45,27 +45,19 @@ int Remote::getCommand(void) {
     int output = command;
     enableInterrupt(pin, myISR, CHANGE);
 
-    if(!change) {
-        if(millis() - update_time > 100) {
-            TIMEOUT = true;
-            return 1000;
-        }
-        return output;
-    }
-
+    if(millis() - update_time < 3) return output;
     update_time = millis();
-    change = false;
 
-    history[history_counter++] = output;
-    if(history_counter > 4) history_counter = 0;
+    history[avg_counter++] = output;
 
-    if(history[0] == history[1] && history[1] == history[2] && history[2] == history[3] && history[3] == history[4]) {
-        TIMEOUT = true;
-        output = 1000;
-        return output;
+    if(avg_counter == 66) {
+        int i=0;
+        while(++i < 67 && history[i] == history[0]);
+        if(i==66) TIMEOUT = true;
+        else TIMEOUT = false;
+        avg_counter = 0;
     }
    
-    TIMEOUT = false;
     return output;
 }
 
@@ -88,7 +80,6 @@ void Remote::dynamic_ISR(void) {
         if (timer != 0) {
             command = ((volatile unsigned int)micros() - timer);
             timer = 0;
-            change = true;
         }
     }
 }

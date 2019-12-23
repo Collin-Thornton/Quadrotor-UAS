@@ -1,6 +1,7 @@
 #include "IMU.h"
 
 #include <Wire.h>
+#include <EEPROM.h>
 #include <MPU6050_6Axis_MotionApps20.h>
 
 MPU6050 mpu;
@@ -9,7 +10,7 @@ VectorFloat gravity;
 
 IMU::IMU() {}
 
-int IMU::init(void) {
+int IMU::init(bool calibrate) {
     instance = this;
 
     Wire.begin();
@@ -32,10 +33,47 @@ int IMU::init(void) {
     Serial.println(F("Initializing DMP"));
     devStatus = mpu.dmpInitialize();
 
-    mpu.setXGyroOffset(220);
-    mpu.setYGyroOffset(76);
-    mpu.setZGyroOffset(-85);
-    mpu.setZAccelOffset(1788);
+    if(calibrate) {
+       Serial.println(F("Calibrating MPU6050"));
+       mpu.CalibrateAccel(100);
+       mpu.CalibrateGyro(100);
+
+       EEPROM.put(0, mpu.getXGyroOffset());
+       EEPROM.put(0+1*sizeof(int16_t), mpu.getYGyroOffset());
+       EEPROM.put(0+2*sizeof(int16_t), mpu.getZGyroOffset());
+       EEPROM.put(0+3*sizeof(int16_t), mpu.getXAccelOffset());
+       EEPROM.put(0+4*sizeof(int16_t), mpu.getYAccelOffset());
+       EEPROM.put(0+5*sizeof(int16_t), mpu.getZAccelOffset());
+
+       Serial.print(mpu.getXGyroOffset());
+       Serial.print('\t');
+       Serial.print(mpu.getYGyroOffset());
+       Serial.print('\t');
+       Serial.print(mpu.getZGyroOffset());
+       Serial.print('\t');
+       Serial.print(mpu.getXAccelOffset());
+       Serial.print('\t');
+       Serial.print(mpu.getYAccelOffset());
+       Serial.print('\t');
+       Serial.println(mpu.getZAccelOffset());
+       delay(5000);
+    } else {
+        int16_t gyroXoff, gyroYoff, gyroZoff, accelXoff, accelYoff, accelZoff;
+
+        EEPROM.get(0, gyroXoff);
+        EEPROM.get(0+1*sizeof(int16_t), gyroYoff);
+        EEPROM.get(0+2*sizeof(int16_t), gyroZoff);
+        EEPROM.get(0+3*sizeof(int16_t), accelXoff);
+        EEPROM.get(0+4*sizeof(int16_t), accelYoff);
+        EEPROM.get(0+5*sizeof(int16_t), accelZoff);
+
+        mpu.setXGyroOffset(gyroXoff);
+        mpu.setYGyroOffset(gyroYoff);
+        mpu.setZGyroOffset(gyroZoff);
+        mpu.setXAccelOffset(accelXoff);
+        mpu.setYAccelOffset(accelYoff);
+        mpu.setZAccelOffset(accelZoff);
+    }
 
     if(devStatus == 0) {
         Serial.println(F("Enabling DMP"));
@@ -57,7 +95,7 @@ int IMU::init(void) {
     return 1;
 }
 
-void IMU::getDMPData(Meas * meas) {
+void IMU::getDMPData(float * output) {
     detachInterrupt(digitalPinToInterrupt(3));
     dmpReady = mpuInterrupt;
     mpuInterrupt = false;
@@ -81,19 +119,29 @@ void IMU::getDMPData(Meas * meas) {
         mpu.getFIFOBytes(fifoBuffer, packetSize);
         fifoCount -= packetSize;
 
-        mpu.dmpGetGyro(meas->rates, fifoBuffer);
+        float ypr[3] = {0.0, 0.0, 0.0};
+        int rates[3] = {0, 0, 0};
+
         mpu.dmpGetQuaternion(&q, fifoBuffer);
         mpu.dmpGetGravity(&gravity, &q);
-        mpu.dmpGetYawPitchRoll(meas->ypr, &q, &gravity);
+        mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+        mpu.dmpGetGyro(rates, fifoBuffer);
 
-        meas->ypr[0] = -meas->ypr[0] * 180 / M_PI;
-        meas->ypr[1] = -meas->ypr[1] * 180 / M_PI + 3.5;
-        meas->ypr[2] =  meas->ypr[2] * 180 / M_PI - 1.9;
+        ypr[0] *= -180.0 / M_PI;
+        ypr[1] *= -180.0 / M_PI + 3.6;
+        ypr[2] *=  180.0 / M_PI - 1.9;
 
-        long temp = meas->rates[0];
-        meas->rates[0] = meas->rates[2] / 2000 / 25;
-        meas->rates[1] = meas->rates[1] / 2000 / 25;
-        meas->rates[2] = temp / 2000 / 25;
+        int temp = rates[0];
+        rates[0] = rates[2];
+        rates[1] = rates[1];
+        rates[2] = temp;
+
+        output[0] = ypr[0];
+        output[1] = ypr[1];
+        output[2] = ypr[2];
+        output[3] = (float)rates[0];
+        output[4] = (float)rates[1];
+        output[5] = (float)rates[2];
 
         dataUpdated = true;
     }
@@ -101,7 +149,6 @@ void IMU::getDMPData(Meas * meas) {
 }
 
 void IMU::dmpISR(void) {
-    instance->mpuInterrupt = 
-    true;    
+    instance->mpuInterrupt = true;    
 }
 

@@ -3,17 +3,12 @@
 
 // Class IMU declared in IMU.cpp due to conflictions in "MPU6050_6Axis_MotionApps20.h"
 
-struct Meas {
-    float * ypr;
-    long * rates;
-};
-
 class IMU {
     public:
         IMU();
 
-        int init(void);
-        void getDMPData(Meas * meas); // ypr
+        int init(bool calibrate = true);
+        void getDMPData(float * output); // ypr
 
         static IMU * instance;
 

@@ -17,7 +17,6 @@ class Remote {
     public:
         Remote(short pin);
 
-        //void init(short pin);
         int getCommand(void);
         int getSwitchState(void);
 
@@ -35,13 +34,12 @@ class Remote {
         static void static_ISR_switchTwo(void);
 
         volatile unsigned int command, timer;
-        volatile bool change;
+
+        int update_time, avg_counter;
+        int history[67];
 
         short pin;
         void (*myISR)(void);
-
-        int history[3], history_counter;
-        unsigned int update_time;
 };
 
 #endif

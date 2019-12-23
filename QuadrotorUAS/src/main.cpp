@@ -5,7 +5,7 @@
 #include "Motor.h"
 #include "IMU.h"
 #include "Remote.h"
-#include "Calibration.h"
+#include "StateEstimater.h"
 
 Motor frontRight, backRight, backLeft, frontLeft;
 
@@ -15,17 +15,42 @@ State state;
 
 IMU * IMU::instance;
 IMU imu;
-Meas meas;
+float meas[6] = {0,0,0,0,0,0};
+
+Kalman KF;
  
 long pastTime, dt, avgDt, maxDt;
 
 short loopCount = 0;
 
+float **x, **control, *kf;
+
 void setup() {
+/*    Serial.begin(38400);
+    char * response;
+    char input;
+    Serial.print("AT\r\n");
+    int time = millis();
+    while(millis() - time < 3000 && input != '\n') {
+        if(Serial.available()) {
+            input = Serial.read();
+            response += input;
+        }
+    }
+    delay(1000);
+    Serial.print("AT+UART=115200,1,0\r\n");
+    delay(1000);
+    Serial.print("AT+RESET\r\n");
+    delay(5000);
+*/
     Serial.begin(115200);
     pastTime = micros();
 
-    imu.init();
+    for(int i=0; i<3; ++i) control[0][i] = 0;
+
+    imu.init(false);
+    float error_meas[6] = {0, 0, 0, 0, 0, 0};
+    KF.init(error_meas);
 
     frontRight.init(5);
     backRight.init(6);
@@ -36,30 +61,10 @@ void setup() {
 }
 
 void loop() {
-
-    imu.getDMPData(&meas);
+    imu.getDMPData(meas);
 
     dt = micros() - pastTime;
     pastTime = micros();
-
-    //if(imu.dataUpdated) {
-    //    avgDt /= loopCount;
-
-        //Serial.print(avgDt);
-        //Serial.print(" , ");
-        //Serial.print(maxDt);
-        //Serial.print(", ");
-        //Serial.println(Throttle.getCommand());
-        //Serial.print(" , ");
-        //Serial.println(Throttle.TIMEOUT);
-
-    //    maxDt = 0;
-    //    loopCount = 0;
-    //} else {
-    //    ++loopCount;
-    //   avgDt += dt;
-    //    maxDt = max(maxDt, dt);
-    //}
 
     int throttle    = Throttle.getCommand();
     int roll        = Roll.getCommand();
@@ -73,17 +78,30 @@ void loop() {
     } 
     else state.ARMED = true;
 
-    Serial.print(meas.rates[0]);
-    Serial.print(" - ");
-    Serial.print(meas.rates[1]);
-    Serial.print(" - ");
-    Serial.print(meas.rates[2]);
-    Serial.print(" - ");
-    Serial.print(meas.ypr[0]);
-    Serial.print(" - ");
-    Serial.print(meas.ypr[1]);
-    Serial.print(" - ");
-    Serial.println(meas.ypr[2]);
+
+    if(imu.dataUpdated) {
+        imu.dataUpdated = false;
+        avgDt /= loopCount;
+
+        maxDt = 0;
+        loopCount = 0;
+
+        x[0] = meas;
+
+        KF.computeState(x, control, kf);
+        
+        for(int i=0; i<6; ++i) {
+            Serial.print(meas[i]);
+            Serial.print(' , ');
+            Serial.print(kf[i]);
+            Serial.print('\t');
+        }
+        Serial.println(' ');        
+    } else {       
+        ++loopCount;
+        avgDt += dt;
+        maxDt = max(maxDt, dt);
+    }
 
     frontRight.spin(throttle, state.ARMED);
     frontLeft.spin(throttle, state.ARMED);
