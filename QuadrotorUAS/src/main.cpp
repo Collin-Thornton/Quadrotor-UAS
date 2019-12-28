@@ -5,7 +5,7 @@
 #include "Motor.h"
 #include "IMU.h"
 #include "Remote.h"
-#include "StateEstimater.h"
+#include "StateEstimaterFast.h"
 
 Motor frontRight, backRight, backLeft, frontLeft;
 
@@ -23,7 +23,7 @@ long pastTime, dt, avgDt, maxDt;
 
 short loopCount = 0;
 
-float **x, **control, *kf;
+float control[3] = {0,0,0}, kf[6] = {0,0,0,0,0,0};
 
 void setup() {
 /*    Serial.begin(38400);
@@ -46,11 +46,7 @@ void setup() {
     Serial.begin(115200);
     pastTime = micros();
 
-    for(int i=0; i<3; ++i) control[0][i] = 0;
-
     imu.init(false);
-    float error_meas[6] = {0, 0, 0, 0, 0, 0};
-    KF.init(error_meas);
 
     frontRight.init(5);
     backRight.init(6);
@@ -58,6 +54,10 @@ void setup() {
     frontLeft.init(11);
 
     state.ARMED = false;
+
+    float error_meas[6] = {0, 0, 0, 0, 0, 0};
+    imu.getDMPData(meas);
+    KF.init(error_meas, meas);
 }
 
 void loop() {
@@ -65,6 +65,8 @@ void loop() {
 
     dt = micros() - pastTime;
     pastTime = micros();
+
+    Serial.println(dt);
 
     int throttle    = Throttle.getCommand();
     int roll        = Roll.getCommand();
@@ -86,15 +88,13 @@ void loop() {
         maxDt = 0;
         loopCount = 0;
 
-        x[0] = meas;
-
-        KF.computeState(x, control, kf);
+        KF.computeState(meas, control, kf);
         
         for(int i=0; i<6; ++i) {
-            Serial.print(meas[i]);
-            Serial.print(' , ');
-            Serial.print(kf[i]);
-            Serial.print('\t');
+            //Serial.print(meas[i]);
+            //Serial.print(F(" , "));
+            //Serial.print(kf[i]);
+            //Serial.print(F("\t"));
         }
         Serial.println(' ');        
     } else {       

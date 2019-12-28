@@ -35,8 +35,8 @@ class Remote {
 
         volatile unsigned int command, timer;
 
-        int update_time, avg_counter;
-        int history[67];
+        int update_time;//, avg_counter;
+        //int history[67];
 
         short pin;
         void (*myISR)(void);

@@ -48,15 +48,15 @@ int Remote::getCommand(void) {
     if(millis() - update_time < 3) return output;
     update_time = millis();
 
-    history[avg_counter++] = output;
+    //history[avg_counter++] = output;
 
-    if(avg_counter == 66) {
-        int i=0;
-        while(++i < 67 && history[i] == history[0]);
-        if(i==66) TIMEOUT = true;
-        else TIMEOUT = false;
-        avg_counter = 0;
-    }
+    //if(avg_counter == 66) {
+    //    int i=0;
+    //    while(++i < 67 && history[i] == history[0]);
+    //    if(i==66) TIMEOUT = true;
+    //    else TIMEOUT = false;
+    //    avg_counter = 0;
+    //}
    
     return output;
 }

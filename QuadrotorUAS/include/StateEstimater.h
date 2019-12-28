@@ -7,8 +7,8 @@ class Kalman {
     public:
         Kalman();
 
-        void init(float * init_error_meas);
-        void computeState(float ** meas, float ** control, float * output);
+        void init(float * init_error_meas, float * init_state);
+        void computeState(float * meas, float * control, float * output);
 
     private:
         template<short dim, class ElemT> struct Diagonal {
@@ -38,12 +38,12 @@ class Kalman {
         float error_obs_meas[6], error_est_meas[6];
 
         BLA::Matrix<6,1> X;                         // State matrix
-        //BLA::Matrix<6,6> S;                       // Inverted term in Kalman Gain
+        BLA::Matrix<6,6> S;                       // Inverted term in Kalman Gain
         BLA::Matrix<6,6> K;                         // Kalman Gain
         BLA::Matrix<6,1> Y;                         // Measurements
 
-        BLA::SparseMatrix<6,6> A;                   // State mapping
-        BLA::SparseMatrix<6,3> B;                   // Command mapping
+        BLA::Matrix<6,6> A;                   // State mapping
+        BLA::Matrix<6,3> B;                   // Command mapping
 
         BLA::Matrix<6,6, Diagonal<6,float>> P;      // Process noise
         BLA::Matrix<6,6, Diagonal<6,float>> R;      // Measurement Covariance

@@ -1,23 +1,19 @@
-#include "StateEstimater.h"
+#include "StateEstimaterFast.h"
+#include <Arduino.h>
 
 Kalman::Kalman() {}
 
 void Kalman::init(float * init_error_meas, float * init_state) {
-    for(int i=0; i<6; ++i) error_est_meas[i] = init_error_meas[i];
+    for(int i=0; i<6; ++i) {
+        error_est_meas[i] = init_error_meas[i];
+        W_k[i] = 0;
+        Q_t[i] = 0;
+        Z_m[i] = 0;         // should be variance of measurements
 
-    //W_k.Fill(0.0);
-    //Q_t.Fill(0.0);
-    //Z_m.Fill(0.0);  // should be variance of measurements
+        X[0] = init_state[0];
+    }
     
-    covariance(error_est_meas, P.Ref());
-    
-    X <<    init_state[0],
-            init_state[1],
-            init_state[2],
-            init_state[3],
-            init_state[4],
-            init_state[5];
-    
+    covariance(error_est_meas, P);
     prevTime = micros();
 }
 void Kalman::computeState(float * meas, float * control, float * output) {
@@ -27,6 +23,9 @@ void Kalman::computeState(float * meas, float * control, float * output) {
     int n = 1;//sizeof(meas)/sizeof(meas[0]);
 
     for(int i=0; i<n; ++i) {
+        for(int j=0; j<3; ++j) X[j] += X[j+3]*dt + W_k[j];
+        for(int j=3; j<6; ++j) X[j] += control[i]*.5*dt*dt;
+        
         updatePrediction(dt, control);
         updateProcessNoise();
         updateKalmanGain();
